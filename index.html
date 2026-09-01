@@ -62,111 +62,100 @@
       }
     }
     
-    // ========== STRIPE PAYMENT ELEMENT ==========
-    const stripe = Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
+    // STRIPE PAYMENT ELEMENT
+    var stripe=Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
 
-    async function initializeStripePayment() {
-        const messageDiv = document.getElementById('payment-message');
-        const submitBtn = document.getElementById('submit-payment');
-        const btnText = document.getElementById('btn-text');
-        const paymentEl = document.getElementById('payment-element');
+    async function initializeStripePayment(){
+        var messageDiv=document.getElementById('payment-message');
+        var submitBtn=document.getElementById('submit-payment');
+        var btnText=document.getElementById('btn-text');
+        var paymentEl=document.getElementById('payment-element');
 
-        // Détection si on est en local (file://)
-        if (window.location.protocol === 'file:') {
-            paymentEl.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--text-light);"><p style="margin-bottom:12px;font-size:1rem;color:var(--danger);">⚠️ Mode local détecté</p><p style="font-size:0.9rem;">Le paiement ne fonctionne qu'une fois le site déployé sur Netlify.<br>Déployez avec <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;">netlify deploy --prod</code></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible en local';
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/create-payment-intent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product: 'pack' })
+        try{
+            var response=await fetch('/api/create-payment-intent',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({product:'pack'})
             });
 
-            const data = await response.json();
+            var data=await response.json();
 
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Erreur serveur (' + response.status + ')');
+            if(!response.ok||data.error){
+                throw new Error(data.error||'Erreur serveur '+response.status);
             }
 
-            if (!data.clientSecret) {
-                throw new Error('Réponse serveur invalide : clientSecret manquant');
+            if(!data.clientSecret){
+                throw new Error('Reponse serveur invalide');
             }
 
-            const elements = stripe.elements({
-                clientSecret: data.clientSecret,
-                appearance: {
-                    theme: 'stripe',
-                    variables: {
-                        colorPrimary: '#f97316',
-                        colorBackground: '#ffffff',
-                        colorText: '#1f2937',
-                        colorDanger: '#ef4444',
-                        borderRadius: '10px',
-                        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+            var elements=stripe.elements({
+                clientSecret:data.clientSecret,
+                appearance:{
+                    theme:'stripe',
+                    variables:{
+                        colorPrimary:'#f97316',
+                        colorBackground:'#ffffff',
+                        colorText:'#1f2937',
+                        colorDanger:'#ef4444',
+                        borderRadius:'10px',
+                        fontFamily:'Inter,-apple-system,BlinkMacSystemFont,sans-serif'
                     }
                 }
             });
 
-            const paymentElement = elements.create('payment');
+            var paymentElement=elements.create('payment');
             paymentElement.mount('#payment-element');
 
-            // Pixel Meta — le formulaire de paiement est affiché et prêt
-            fbq('track', 'AddPaymentInfo');
+            fbq('track','AddPaymentInfo');
 
-            document.getElementById('payment-form').addEventListener('submit', async (e) => {
+            document.getElementById('payment-form').addEventListener('submit',async function(e){
                 e.preventDefault();
+                submitBtn.disabled=true;
+                btnText.innerHTML='<span class="payment-loader"></span>Traitement...';
+                messageDiv.textContent='';
+                messageDiv.className='';
 
-                submitBtn.disabled = true;
-                btnText.innerHTML = '<span class="payment-loader"></span>Traitement...';
-                messageDiv.textContent = '';
-                messageDiv.className = '';
-
-                fbq('track', 'InitiateCheckout', {
-                    value: 29.90,
-                    currency: 'EUR',
-                    content_type: 'product',
-                    content_ids: ['pack-monquebec']
+                fbq('track','InitiateCheckout',{
+                    value:29.90,
+                    currency:'EUR',
+                    content_type:'product',
+                    content_ids:['pack-monquebec']
                 });
 
-                const { error } = await stripe.confirmPayment({
-                    elements,
-                    confirmParams: {
-                        return_url: 'https://monquebec.netlify.app/merci.html',
-                    },
+                var result=await stripe.confirmPayment({
+                    elements:elements,
+                    confirmParams:{
+                        return_url:'https://monquebec.vercel.app/merci.html'
+                    }
                 });
 
-                if (error) {
-                    messageDiv.textContent = error.message;
-                    messageDiv.className = 'error';
-                    submitBtn.disabled = false;
-                    btnText.textContent = 'Payer 29,90 €';
+                if(result.error){
+                    messageDiv.textContent=result.error.message;
+                    messageDiv.className='error';
+                    submitBtn.disabled=false;
+                    btnText.textContent='Payer 29,90 EUR';
                 }
             });
 
-        } catch (err) {
-            console.error('Stripe init error:', err);
-            paymentEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">❌ Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">' + err.message + '</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal →</a></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible';
-            messageDiv.textContent = '';
+        }catch(err){
+            console.error('Stripe error:',err);
+            paymentEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">'+err.message+'</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal</a></p></div>';
+            submitBtn.disabled=true;
+            btnText.textContent='Paiement indisponible';
         }
     }
 
-    const paymentObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
+    var paymentObserver=new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+            if(entry.isIntersecting){
                 initializeStripePayment();
                 paymentObserver.disconnect();
             }
         });
-    }, { threshold: 0.1 });
+    },{threshold:0.1});
 
-    const paymentSection = document.getElementById('paiement');
-    if (paymentSection) paymentObserver.observe(paymentSection);
+    var paymentSection=document.getElementById('paiement');
+    if(paymentSection)paymentObserver.observe(paymentSection);
 </script>
 
     <!-- META PIXEL -->
@@ -182,111 +171,100 @@
     fbq('init', '5848393788579383');
     fbq('track', 'PageView');
     
-    // ========== STRIPE PAYMENT ELEMENT ==========
-    const stripe = Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
+    // STRIPE PAYMENT ELEMENT
+    var stripe=Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
 
-    async function initializeStripePayment() {
-        const messageDiv = document.getElementById('payment-message');
-        const submitBtn = document.getElementById('submit-payment');
-        const btnText = document.getElementById('btn-text');
-        const paymentEl = document.getElementById('payment-element');
+    async function initializeStripePayment(){
+        var messageDiv=document.getElementById('payment-message');
+        var submitBtn=document.getElementById('submit-payment');
+        var btnText=document.getElementById('btn-text');
+        var paymentEl=document.getElementById('payment-element');
 
-        // Détection si on est en local (file://)
-        if (window.location.protocol === 'file:') {
-            paymentEl.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--text-light);"><p style="margin-bottom:12px;font-size:1rem;color:var(--danger);">⚠️ Mode local détecté</p><p style="font-size:0.9rem;">Le paiement ne fonctionne qu'une fois le site déployé sur Netlify.<br>Déployez avec <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;">netlify deploy --prod</code></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible en local';
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/create-payment-intent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product: 'pack' })
+        try{
+            var response=await fetch('/api/create-payment-intent',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({product:'pack'})
             });
 
-            const data = await response.json();
+            var data=await response.json();
 
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Erreur serveur (' + response.status + ')');
+            if(!response.ok||data.error){
+                throw new Error(data.error||'Erreur serveur '+response.status);
             }
 
-            if (!data.clientSecret) {
-                throw new Error('Réponse serveur invalide : clientSecret manquant');
+            if(!data.clientSecret){
+                throw new Error('Reponse serveur invalide');
             }
 
-            const elements = stripe.elements({
-                clientSecret: data.clientSecret,
-                appearance: {
-                    theme: 'stripe',
-                    variables: {
-                        colorPrimary: '#f97316',
-                        colorBackground: '#ffffff',
-                        colorText: '#1f2937',
-                        colorDanger: '#ef4444',
-                        borderRadius: '10px',
-                        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+            var elements=stripe.elements({
+                clientSecret:data.clientSecret,
+                appearance:{
+                    theme:'stripe',
+                    variables:{
+                        colorPrimary:'#f97316',
+                        colorBackground:'#ffffff',
+                        colorText:'#1f2937',
+                        colorDanger:'#ef4444',
+                        borderRadius:'10px',
+                        fontFamily:'Inter,-apple-system,BlinkMacSystemFont,sans-serif'
                     }
                 }
             });
 
-            const paymentElement = elements.create('payment');
+            var paymentElement=elements.create('payment');
             paymentElement.mount('#payment-element');
 
-            // Pixel Meta — le formulaire de paiement est affiché et prêt
-            fbq('track', 'AddPaymentInfo');
+            fbq('track','AddPaymentInfo');
 
-            document.getElementById('payment-form').addEventListener('submit', async (e) => {
+            document.getElementById('payment-form').addEventListener('submit',async function(e){
                 e.preventDefault();
+                submitBtn.disabled=true;
+                btnText.innerHTML='<span class="payment-loader"></span>Traitement...';
+                messageDiv.textContent='';
+                messageDiv.className='';
 
-                submitBtn.disabled = true;
-                btnText.innerHTML = '<span class="payment-loader"></span>Traitement...';
-                messageDiv.textContent = '';
-                messageDiv.className = '';
-
-                fbq('track', 'InitiateCheckout', {
-                    value: 29.90,
-                    currency: 'EUR',
-                    content_type: 'product',
-                    content_ids: ['pack-monquebec']
+                fbq('track','InitiateCheckout',{
+                    value:29.90,
+                    currency:'EUR',
+                    content_type:'product',
+                    content_ids:['pack-monquebec']
                 });
 
-                const { error } = await stripe.confirmPayment({
-                    elements,
-                    confirmParams: {
-                        return_url: 'https://monquebec.netlify.app/merci.html',
-                    },
+                var result=await stripe.confirmPayment({
+                    elements:elements,
+                    confirmParams:{
+                        return_url:'https://monquebec.vercel.app/merci.html'
+                    }
                 });
 
-                if (error) {
-                    messageDiv.textContent = error.message;
-                    messageDiv.className = 'error';
-                    submitBtn.disabled = false;
-                    btnText.textContent = 'Payer 29,90 €';
+                if(result.error){
+                    messageDiv.textContent=result.error.message;
+                    messageDiv.className='error';
+                    submitBtn.disabled=false;
+                    btnText.textContent='Payer 29,90 EUR';
                 }
             });
 
-        } catch (err) {
-            console.error('Stripe init error:', err);
-            paymentEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">❌ Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">' + err.message + '</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal →</a></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible';
-            messageDiv.textContent = '';
+        }catch(err){
+            console.error('Stripe error:',err);
+            paymentEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">'+err.message+'</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal</a></p></div>';
+            submitBtn.disabled=true;
+            btnText.textContent='Paiement indisponible';
         }
     }
 
-    const paymentObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
+    var paymentObserver=new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+            if(entry.isIntersecting){
                 initializeStripePayment();
                 paymentObserver.disconnect();
             }
         });
-    }, { threshold: 0.1 });
+    },{threshold:0.1});
 
-    const paymentSection = document.getElementById('paiement');
-    if (paymentSection) paymentObserver.observe(paymentSection);
+    var paymentSection=document.getElementById('paiement');
+    if(paymentSection)paymentObserver.observe(paymentSection);
 </script>
     <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id=5848393788579383&ev=PageView&noscript=1"/></noscript>
@@ -1684,203 +1662,118 @@
             .audio-player-meta { font-size: 0.62rem; }
         }
 
-        /* ===== FORMULAIRE DE PAIEMENT STRIPE ===== */
-        #paiement { background: var(--bg-soft); }
-        .payment-box {
-            background: white;
-            border-radius: 24px;
-            padding: 40px;
-            border: 1px solid var(--border);
-            box-shadow: 0 20px 60px -20px rgba(15,27,61,0.15);
-            max-width: 560px;
-            margin: 0 auto;
-        }
-        .payment-box h3 {
-            text-align: center;
-            font-size: 1.3rem;
-            color: var(--bleu);
-            margin-bottom: 8px;
-        }
-        .payment-box .payment-sub {
-            text-align: center;
-            color: var(--text-light);
-            font-size: 0.95rem;
-            margin-bottom: 28px;
-        }
-        #payment-element {
-            margin-bottom: 24px;
-            min-height: 200px;
-        }
-        #submit-payment {
-            width: 100%;
-            background: linear-gradient(135deg, var(--accent), #ea580c);
-            color: white;
-            padding: 16px;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 10px 30px rgba(249,115,22,0.35);
-            transition: all 0.3s;
-        }
-        #submit-payment:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 40px rgba(249,115,22,0.45);
-        }
-        #submit-payment:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-        #payment-message {
-            margin-top: 16px;
-            text-align: center;
-            font-size: 0.95rem;
-            min-height: 24px;
-        }
-        #payment-message.error { color: var(--danger); }
-        #payment-message.success { color: var(--success); }
-        .payment-loader {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255,255,255,0.4);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .payment-guarantee {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 20px;
-            font-size: 0.85rem;
-            color: var(--text-light);
-            flex-wrap: wrap;
-        }
-        .payment-alt {
-            text-align: center;
-            margin-top: 16px;
-            font-size: 0.85rem;
-        }
-        .payment-alt a {
-            color: var(--text-light);
-            text-decoration: underline;
-        }
-        @media (max-width: 768px) {
-            .payment-box { padding: 28px 20px; }
-        }
+        #paiement{background:var(--bg-soft)}
+        .payment-box{background:#fff;border-radius:24px;padding:40px;border:1px solid var(--border);box-shadow:0 20px 60px -20px rgba(15,27,61,0.15);max-width:560px;margin:0 auto}
+        .payment-box h3{text-align:center;font-size:1.3rem;color:var(--bleu);margin-bottom:8px}
+        .payment-box .payment-sub{text-align:center;color:var(--text-light);font-size:0.95rem;margin-bottom:28px}
+        #payment-element{margin-bottom:24px;min-height:200px}
+        #submit-payment{width:100%;background:linear-gradient(135deg,var(--accent),#ea580c);color:#fff;padding:16px;border-radius:12px;font-size:1.1rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 10px 30px rgba(249,115,22,0.35);transition:all .3s}
+        #submit-payment:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 15px 40px rgba(249,115,22,0.45)}
+        #submit-payment:disabled{opacity:.7;cursor:not-allowed}
+        #payment-message{margin-top:16px;text-align:center;font-size:0.95rem;min-height:24px}
+        #payment-message.error{color:var(--danger)}
+        #payment-message.success{color:var(--success)}
+        .payment-loader{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+        .payment-guarantee{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;font-size:0.85rem;color:var(--text-light);flex-wrap:wrap}
+        .payment-alt{text-align:center;margin-top:16px;font-size:0.85rem}
+        .payment-alt a{color:var(--text-light);text-decoration:underline}
+        @media(max-width:768px){.payment-box{padding:28px 20px}}
     </style>
     <script src="https://js.stripe.com/v3/">
-    // ========== STRIPE PAYMENT ELEMENT ==========
-    const stripe = Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
+    // STRIPE PAYMENT ELEMENT
+    var stripe=Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
 
-    async function initializeStripePayment() {
-        const messageDiv = document.getElementById('payment-message');
-        const submitBtn = document.getElementById('submit-payment');
-        const btnText = document.getElementById('btn-text');
-        const paymentEl = document.getElementById('payment-element');
+    async function initializeStripePayment(){
+        var messageDiv=document.getElementById('payment-message');
+        var submitBtn=document.getElementById('submit-payment');
+        var btnText=document.getElementById('btn-text');
+        var paymentEl=document.getElementById('payment-element');
 
-        // Détection si on est en local (file://)
-        if (window.location.protocol === 'file:') {
-            paymentEl.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--text-light);"><p style="margin-bottom:12px;font-size:1rem;color:var(--danger);">⚠️ Mode local détecté</p><p style="font-size:0.9rem;">Le paiement ne fonctionne qu'une fois le site déployé sur Netlify.<br>Déployez avec <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;">netlify deploy --prod</code></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible en local';
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/create-payment-intent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product: 'pack' })
+        try{
+            var response=await fetch('/api/create-payment-intent',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({product:'pack'})
             });
 
-            const data = await response.json();
+            var data=await response.json();
 
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Erreur serveur (' + response.status + ')');
+            if(!response.ok||data.error){
+                throw new Error(data.error||'Erreur serveur '+response.status);
             }
 
-            if (!data.clientSecret) {
-                throw new Error('Réponse serveur invalide : clientSecret manquant');
+            if(!data.clientSecret){
+                throw new Error('Reponse serveur invalide');
             }
 
-            const elements = stripe.elements({
-                clientSecret: data.clientSecret,
-                appearance: {
-                    theme: 'stripe',
-                    variables: {
-                        colorPrimary: '#f97316',
-                        colorBackground: '#ffffff',
-                        colorText: '#1f2937',
-                        colorDanger: '#ef4444',
-                        borderRadius: '10px',
-                        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+            var elements=stripe.elements({
+                clientSecret:data.clientSecret,
+                appearance:{
+                    theme:'stripe',
+                    variables:{
+                        colorPrimary:'#f97316',
+                        colorBackground:'#ffffff',
+                        colorText:'#1f2937',
+                        colorDanger:'#ef4444',
+                        borderRadius:'10px',
+                        fontFamily:'Inter,-apple-system,BlinkMacSystemFont,sans-serif'
                     }
                 }
             });
 
-            const paymentElement = elements.create('payment');
+            var paymentElement=elements.create('payment');
             paymentElement.mount('#payment-element');
 
-            // Pixel Meta — le formulaire de paiement est affiché et prêt
-            fbq('track', 'AddPaymentInfo');
+            fbq('track','AddPaymentInfo');
 
-            document.getElementById('payment-form').addEventListener('submit', async (e) => {
+            document.getElementById('payment-form').addEventListener('submit',async function(e){
                 e.preventDefault();
+                submitBtn.disabled=true;
+                btnText.innerHTML='<span class="payment-loader"></span>Traitement...';
+                messageDiv.textContent='';
+                messageDiv.className='';
 
-                submitBtn.disabled = true;
-                btnText.innerHTML = '<span class="payment-loader"></span>Traitement...';
-                messageDiv.textContent = '';
-                messageDiv.className = '';
-
-                fbq('track', 'InitiateCheckout', {
-                    value: 29.90,
-                    currency: 'EUR',
-                    content_type: 'product',
-                    content_ids: ['pack-monquebec']
+                fbq('track','InitiateCheckout',{
+                    value:29.90,
+                    currency:'EUR',
+                    content_type:'product',
+                    content_ids:['pack-monquebec']
                 });
 
-                const { error } = await stripe.confirmPayment({
-                    elements,
-                    confirmParams: {
-                        return_url: 'https://monquebec.netlify.app/merci.html',
-                    },
+                var result=await stripe.confirmPayment({
+                    elements:elements,
+                    confirmParams:{
+                        return_url:'https://monquebec.vercel.app/merci.html'
+                    }
                 });
 
-                if (error) {
-                    messageDiv.textContent = error.message;
-                    messageDiv.className = 'error';
-                    submitBtn.disabled = false;
-                    btnText.textContent = 'Payer 29,90 €';
+                if(result.error){
+                    messageDiv.textContent=result.error.message;
+                    messageDiv.className='error';
+                    submitBtn.disabled=false;
+                    btnText.textContent='Payer 29,90 EUR';
                 }
             });
 
-        } catch (err) {
-            console.error('Stripe init error:', err);
-            paymentEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">❌ Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">' + err.message + '</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal →</a></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible';
-            messageDiv.textContent = '';
+        }catch(err){
+            console.error('Stripe error:',err);
+            paymentEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">'+err.message+'</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal</a></p></div>';
+            submitBtn.disabled=true;
+            btnText.textContent='Paiement indisponible';
         }
     }
 
-    const paymentObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
+    var paymentObserver=new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+            if(entry.isIntersecting){
                 initializeStripePayment();
                 paymentObserver.disconnect();
             }
         });
-    }, { threshold: 0.1 });
+    },{threshold:0.1});
 
-    const paymentSection = document.getElementById('paiement');
-    if (paymentSection) paymentObserver.observe(paymentSection);
+    var paymentSection=document.getElementById('paiement');
+    if(paymentSection)paymentObserver.observe(paymentSection);
 </script>
 </head>
 <body>
@@ -2052,31 +1945,31 @@
     <p class="section-intro" style="margin-top:24px;">Dans le guide, les termes administratifs comme PVT, ARM et PSTQ sont également expliqués simplement.</p>
 </section>
 <section class="section" id="paiement">
-    <div class="section-eyebrow">PAIEMENT SÉCURISÉ</div>
+    <div class="section-eyebrow">PAIEMENT SECURISE</div>
     <h2>Finalisez votre commande <em>en quelques secondes</em></h2>
-    <p class="section-intro" style="text-align:center;">Paiement sécurisé par Stripe · Vos données sont chiffrées · Accès immédiat après paiement</p>
+    <p class="section-intro" style="text-align:center;">Paiement securise par Stripe. Vos donnees sont chiffrees. Acces immediat apres paiement.</p>
     <div class="payment-box">
-        <h3>🛡️ Paiement sécurisé</h3>
-        <p class="payment-sub">Pack MONQUÉBEC — <strong>29,90 €</strong></p>
+        <h3>Paiement securise</h3>
+        <p class="payment-sub">Pack MONQUEBEC &mdash; <strong>29,90 &euro;</strong></p>
         <form id="payment-form">
             <div id="payment-element">
                 <div id="payment-loading" style="text-align:center;padding:40px 20px;color:var(--text-light);">
-                    <div style="display:inline-block;width:32px;height:32px;border:3px solid #e5e7eb;border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:12px;"></div>
-                    <p style="font-size:0.95rem;">Chargement du paiement sécurisé…</p>
+                    <div style="display:inline-block;width:32px;height:32px;border:3px solid #e5e7eb;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px;"></div>
+                    <p style="font-size:0.95rem;">Chargement du paiement securise...</p>
                 </div>
             </div>
             <button id="submit-payment" type="submit">
-                <span id="btn-text">Payer 29,90 €</span>
+                <span id="btn-text">Payer 29,90 &euro;</span>
             </button>
             <div id="payment-message"></div>
         </form>
         <div class="payment-guarantee">
-            <span>🔒</span> Paiement 100% sécurisé par Stripe
+            <span>🔒</span> Paiement 100% securise par Stripe
             <span>·</span>
             <span>🛡️</span> Garantie 30 jours
         </div>
         <p class="payment-alt">
-            <a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" onclick="fbq('track', 'InitiateCheckout');">ou payer par PayPal</a>
+            <a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" onclick="fbq('track','InitiateCheckout');">ou payer par PayPal</a>
         </p>
     </div>
 </section>
@@ -2360,17 +2253,17 @@
     });
 
     // ========== SMOOTH SCROLL ==========
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function(e) {
+    document.querySelectorAll('a[href^="#"]').forEach(function(anchor){
+        anchor.addEventListener('click',function(e){
             e.preventDefault();
-            const targetId = this.getAttribute('href');
-            if (targetId === '#') return;
-            const target = document.querySelector(targetId);
-            if (target) {
-                const headerOffset = 80;
-                const elementPosition = target.getBoundingClientRect().top;
-                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+            var targetId=this.getAttribute('href');
+            if(targetId==='#')return;
+            var target=document.querySelector(targetId);
+            if(target){
+                var headerOffset=80;
+                var elementPosition=target.getBoundingClientRect().top;
+                var offsetPosition=elementPosition+window.pageYOffset-headerOffset;
+                window.scrollTo({top:offsetPosition,behavior:'smooth'});
             }
         });
     });
@@ -2384,111 +2277,100 @@
         }
     });
 
-    // ========== STRIPE PAYMENT ELEMENT ==========
-    const stripe = Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
+    // STRIPE PAYMENT ELEMENT
+    var stripe=Stripe('pk_live_51PUwfDRxS8Z31agRweBfRDSX3LIFDOE86uDdj7YxjY5WLkSVRdwqDcM5kJkYMzdYj6Z16bs9kY73SXWstYzNRTCl00qwtHrnjy');
 
-    async function initializeStripePayment() {
-        const messageDiv = document.getElementById('payment-message');
-        const submitBtn = document.getElementById('submit-payment');
-        const btnText = document.getElementById('btn-text');
-        const paymentEl = document.getElementById('payment-element');
+    async function initializeStripePayment(){
+        var messageDiv=document.getElementById('payment-message');
+        var submitBtn=document.getElementById('submit-payment');
+        var btnText=document.getElementById('btn-text');
+        var paymentEl=document.getElementById('payment-element');
 
-        // Détection si on est en local (file://)
-        if (window.location.protocol === 'file:') {
-            paymentEl.innerHTML = '<div style="text-align:center;padding:30px 20px;color:var(--text-light);"><p style="margin-bottom:12px;font-size:1rem;color:var(--danger);">⚠️ Mode local détecté</p><p style="font-size:0.9rem;">Le paiement ne fonctionne qu'une fois le site déployé sur Netlify.<br>Déployez avec <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;">netlify deploy --prod</code></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible en local';
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/create-payment-intent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product: 'pack' })
+        try{
+            var response=await fetch('/api/create-payment-intent',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({product:'pack'})
             });
 
-            const data = await response.json();
+            var data=await response.json();
 
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Erreur serveur (' + response.status + ')');
+            if(!response.ok||data.error){
+                throw new Error(data.error||'Erreur serveur '+response.status);
             }
 
-            if (!data.clientSecret) {
-                throw new Error('Réponse serveur invalide : clientSecret manquant');
+            if(!data.clientSecret){
+                throw new Error('Reponse serveur invalide');
             }
 
-            const elements = stripe.elements({
-                clientSecret: data.clientSecret,
-                appearance: {
-                    theme: 'stripe',
-                    variables: {
-                        colorPrimary: '#f97316',
-                        colorBackground: '#ffffff',
-                        colorText: '#1f2937',
-                        colorDanger: '#ef4444',
-                        borderRadius: '10px',
-                        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+            var elements=stripe.elements({
+                clientSecret:data.clientSecret,
+                appearance:{
+                    theme:'stripe',
+                    variables:{
+                        colorPrimary:'#f97316',
+                        colorBackground:'#ffffff',
+                        colorText:'#1f2937',
+                        colorDanger:'#ef4444',
+                        borderRadius:'10px',
+                        fontFamily:'Inter,-apple-system,BlinkMacSystemFont,sans-serif'
                     }
                 }
             });
 
-            const paymentElement = elements.create('payment');
+            var paymentElement=elements.create('payment');
             paymentElement.mount('#payment-element');
 
-            // Pixel Meta — le formulaire de paiement est affiché et prêt
-            fbq('track', 'AddPaymentInfo');
+            fbq('track','AddPaymentInfo');
 
-            document.getElementById('payment-form').addEventListener('submit', async (e) => {
+            document.getElementById('payment-form').addEventListener('submit',async function(e){
                 e.preventDefault();
+                submitBtn.disabled=true;
+                btnText.innerHTML='<span class="payment-loader"></span>Traitement...';
+                messageDiv.textContent='';
+                messageDiv.className='';
 
-                submitBtn.disabled = true;
-                btnText.innerHTML = '<span class="payment-loader"></span>Traitement...';
-                messageDiv.textContent = '';
-                messageDiv.className = '';
-
-                fbq('track', 'InitiateCheckout', {
-                    value: 29.90,
-                    currency: 'EUR',
-                    content_type: 'product',
-                    content_ids: ['pack-monquebec']
+                fbq('track','InitiateCheckout',{
+                    value:29.90,
+                    currency:'EUR',
+                    content_type:'product',
+                    content_ids:['pack-monquebec']
                 });
 
-                const { error } = await stripe.confirmPayment({
-                    elements,
-                    confirmParams: {
-                        return_url: 'https://monquebec.netlify.app/merci.html',
-                    },
+                var result=await stripe.confirmPayment({
+                    elements:elements,
+                    confirmParams:{
+                        return_url:'https://monquebec.vercel.app/merci.html'
+                    }
                 });
 
-                if (error) {
-                    messageDiv.textContent = error.message;
-                    messageDiv.className = 'error';
-                    submitBtn.disabled = false;
-                    btnText.textContent = 'Payer 29,90 €';
+                if(result.error){
+                    messageDiv.textContent=result.error.message;
+                    messageDiv.className='error';
+                    submitBtn.disabled=false;
+                    btnText.textContent='Payer 29,90 EUR';
                 }
             });
 
-        } catch (err) {
-            console.error('Stripe init error:', err);
-            paymentEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">❌ Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">' + err.message + '</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal →</a></p></div>';
-            submitBtn.disabled = true;
-            btnText.textContent = 'Paiement indisponible';
-            messageDiv.textContent = '';
+        }catch(err){
+            console.error('Stripe error:',err);
+            paymentEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--danger);"><p style="font-weight:600;margin-bottom:8px;">Erreur de chargement</p><p style="font-size:0.9rem;color:var(--text-light);">'+err.message+'</p><p style="font-size:0.85rem;margin-top:12px;"><a href="https://www.paypal.com/ncp/payment/A84WM39NRGVBN" style="color:var(--accent);text-decoration:underline;">Payer par PayPal</a></p></div>';
+            submitBtn.disabled=true;
+            btnText.textContent='Paiement indisponible';
         }
     }
 
-    const paymentObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
+    var paymentObserver=new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+            if(entry.isIntersecting){
                 initializeStripePayment();
                 paymentObserver.disconnect();
             }
         });
-    }, { threshold: 0.1 });
+    },{threshold:0.1});
 
-    const paymentSection = document.getElementById('paiement');
-    if (paymentSection) paymentObserver.observe(paymentSection);
+    var paymentSection=document.getElementById('paiement');
+    if(paymentSection)paymentObserver.observe(paymentSection);
 </script>
 </body>
 </html>
